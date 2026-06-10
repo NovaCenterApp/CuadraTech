@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>CuadraTech</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --primary: #2563eb;
+      --accent: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text: #111827;
+      --muted: #6b7280;
+      --card: #ffffff;
+      --border: #e5e7eb;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .app {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 480px;
+      margin: 0 auto;
+      position: relative;
+      padding-bottom: 64px;
+    }
+
+    header {
+      padding: 12px 16px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    header span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 12px 80px;
+    }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
+      border: 1px solid var(--border);
+    }
+
+    .card-title {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .card-value {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .card-sub {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .card.green { border-left: 4px solid var(--accent); }
+    .card.blue { border-left: 4px solid var(--primary); }
+    .card.orange { border-left: 4px solid var(--warning); }
+
+    .primary-button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 12px;
+      border-radius: 999px;
+      border: none;
+      background: var(--primary);
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+    }
+
+    .primary-button:active { transform: scale(0.98); }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      margin-top: 8px;
+    }
+
+    .muted {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Productos */
+
+    .search-bar {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    .products-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 64px;
+    }
+
+    .product-card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .product-image {
+      width: 100%;
+      height: 70px;
+      border-radius: 8px;
+      background: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .product-name {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .product-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+
+    .stock-pill {
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .stock-high { background: var(--accent); }
+    .stock-mid { background: var(--warning); }
+    .stock-low { background: var(--danger); }
+
+    .fab {
+      position: fixed;
+      right: 16px;
+      bottom: 80px;
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      background: var(--primary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+    }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>CuadraTech</h1>
+        <span>Control rápido de inventario y ventas</span>
+      </div>
+      <span>Offline</span>
+    </header>
+
+    <main>
+
+      <!-- 🏠 INICIO -->
+      <section id="screen-home" class="screen active">
+        <div class="cards">
+          <div class="card green" id="card-caja">
+            <div class="card-title">Caja actual</div>
+            <div class="card-value" id="caja-valor">$0.00</div>
+            <div class="card-sub">Suma de todas las ventas</div>
+          </div>
+
+          <div class="card orange" id="card-inventario">
+            <div class="card-title">Inventario total</div>
+            <div class="card-value" id="inventario-valor">$0.00</div>
+            <div class="card-sub">Valor de stock (compra × cantidad)</div>
+          </div>
+
+          <div class="card blue" id="card-ganancia-dia">
+            <div class="card-title">Ganancia del día</div>
+            <div class="card-value" id="ganancia-dia-valor">$0.00</div>
+            <div class="card-sub">Ventas - costo de productos vendidos</div>
+          </div>
+        </div>
+
+        <button class="primary-button" onclick="goToScreen('sales')">
+          Nueva venta
+        </button>
+
+        <div style="margin-top:16px;">
+          <div class="section-title">Resumen rápido</div>
+          <p class="muted">
+            En menos de 5 segundos ves caja, inventario y ganancia del día.
+          </p>
+        </div>
+      </section>
+
+      <!-- 📦 PRODUCTOS -->
+      <section id="screen-products" class="screen">
+        <div class="section-title">Inventario</div>
+        <p class="muted">Gestión visual rápida de productos.</p>
+
+        <input
+          type="text"
+          class="search-bar"
+          placeholder="Buscar producto..."
+          oninput="filterProducts(this.value)"
+        />
+
+        <div class="products-grid" id="products-grid"></div>
+      </section>
+
+      <!-- 💵 VENTAS -->
+      <section id="screen-sales" class="screen">
+        <div class="sales-layout">
+
+          <div class="sales-products">
+            <input
+              type="text"
+              class="search-bar"
+              placeholder="Buscar producto para vender..."
+              oninput="filterSalesProducts(this.value)"
+            />
+
+            <div class="sales-grid" id="sales-grid"></div>
+          </div>
+
+          <div class="cart">
+            <div class="cart-header">
+              <span style="font-size:13px;font-weight:600;">Carrito</span>
+              <span class="muted" id="cart-count">0 productos</span>
+            </div>
+
+            <div class="cart-items" id="cart-items"></div>
+
+            <div class="cart-total-row">
+              <div>
+                <div class="cart-total-label">Total</div>
+                <div class="cart-total-value" id="cart-total">$0.00</div>
+              </div>
+
+              <button class="pay-button" onclick="confirmSale()">
+                Cobrar
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- 📊 HISTORIAL -->
+      <section id="screen-history" class="screen">
+        <div class="section-title">Historial de ventas</div>
+        <p class="muted">Registro completo de ventas. Solo lectura.</p>
+
+        <div class="history-list" id="history-list"></div>
+
+        <div class="history-detail" id="history-detail" style="display:none;">
+          <h3>Detalle de venta</h3>
+          <div class="history-products" id="history-products"></div>
+        </div>
+      </section>
+
+      <!-- ⚙️ AJUSTES -->
+      <section id="screen-settings" class="screen">
+        <div class="section-title">Ajustes</div>
+        <p class="muted">Configuración básica del negocio.</p>
+
+        <div class="settings-group">
+          <h3>Datos del negocio</h3>
+          <label for="business-name">Nombre del negocio</label>
+          <input
+            id="business-name"
+            type="text"
+            placeholder="Ej: Bodega La Esquina"
+            oninput="updateBusinessName(this.value)"
+          />
+        </div>
+
+        <div class="settings-group">
+          <h3>Backup (futuro)</h3>
+          <p class="muted">Exportar datos (no implementado en esta demo).</p>
+        </div>
+
+        <div class="settings-group">
+          <h3>Reset app</h3>
+          <p class="muted">
+            Borrar todos los datos de productos y ventas. Acción irreversible.
+          </p>
+          <button class="danger-button" onclick="openResetModal()">
+            Borrar todos los datos
+          </button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Botón flotante (+) -->
+    <button class="fab" onclick="openProductForm()">+</button>
+
+    <!-- Bottom bar -->
+    <nav class="bottom-bar">
+      <div class="tab-button" id="tab-home" onclick="goToScreen('home')">
+        <span>🏠</span>
+        Inicio
+      </div>
+
+      <div class="tab-button" id="tab-products" onclick="goToScreen('products')">
+        <span>📦</span>
+        Productos
+      </div>
+
+      <div class="tab-button center" id="tab-sales" onclick="goToScreen('sales')">
+        <span>💵</span>
+        Ventas
+      </div>
+
+      <div class="tab-button" id="tab-history" onclick="goToScreen('history')">
+        <span>📊</span>
+        Historial
+      </div>
+
+      <div class="tab-button" id="tab-settings" onclick="goToScreen('settings')">
+        <span>⚙️</span>
+        Ajustes
+      </div>
+    </nav>
+    <!-- Modal genérico -->
+    <div class="modal-backdrop" id="modal-backdrop">
+      <div class="modal">
+        <h2 id="modal-title">Confirmar</h2>
+        <p id="modal-message">¿Estás seguro?</p>
+
+        <div class="modal-actions">
+          <button class="secondary-button" onclick="closeModal()">Cancelar</button>
+          <button class="primary-button" id="modal-confirm">Confirmar</button>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- cierre .app -->
+
+  <!-- Aquí comenzará el JavaScript en la PARTE 4 -->
+  <script>
+    // ============================
+    //   DATOS EN MEMORIA (DEMO)
+    // ============================
+
+    let products = [
+      { id: 1, nombre: "Agua 500ml", precio_compra: 0.30, precio_venta: 0.75, stock: 40 },
+      { id: 2, nombre: "Refresco lata", precio_compra: 0.50, precio_venta: 1.20, stock: 15 },
+      { id: 3, nombre: "Pan", precio_compra: 0.20, precio_venta: 0.60, stock: 5 },
+      { id: 4, nombre: "Galletas", precio_compra: 0.40, precio_venta: 1.00, stock: 25 }
+    ];
+
+    let ventas = [];
+    let cart = [];
+    let businessName = "CuadraTech";
+
+
+    // ============================
+    //   UTILIDADES
+    // ============================
+
+    function formatMoney(value) {
+      return "$" + value.toFixed(2);
+    }
+
+
+    // ============================
+    //   NAVEGACIÓN ENTRE PANTALLAS
+    // ============================
+
+    function goToScreen(screen) {
+      const screens = {
+        home: "screen-home",
+        products: "screen-products",
+        sales: "screen-sales",
+        history: "screen-history",
+        settings: "screen-settings",
+      };
+
+      Object.values(screens).forEach(id => {
+        document.getElementById(id).classList.remove("active");
+      });
+
+      document.getElementById(screens[screen]).classList.add("active");
+
+      // Actualizar tabs
+      ["home","products","sales","history","settings"].forEach(tab => {
+        document.getElementById("tab-" + tab).classList.remove("active");
+      });
+      document.getElementById("tab-" + screen).classList.add("active");
+
+      // Render según pantalla
+      if (screen === "products") renderProducts();
+      if (screen === "sales") renderSalesProducts();
+      if (screen === "history") renderHistory();
+      if (screen === "home") updateDashboard();
+    }
+
+
+    // ============================
+    //   DASHBOARD (INICIO)
+    // ============================
+
+    function updateDashboard() {
+      const caja = ventas.reduce((acc, v) => acc + v.total, 0);
+      document.getElementById("caja-valor").textContent = formatMoney(caja);
+
+      const inventario = products.reduce(
+        (acc, p) => acc + p.precio_compra * p.stock,
+        0
+      );
+      document.getElementById("inventario-valor").textContent = formatMoney(inventario);
+
+      let totalVentas = 0;
+      let costoVendidos = 0;
+
+      ventas.forEach(v => {
+        totalVentas += v.total;
+        v.items.forEach(item => {
+          costoVendidos += item.costo_unitario * item.cantidad;
+        });
+      });
+
+      const ganancia = totalVentas - costoVendidos;
+      document.getElementById("ganancia-dia-valor").textContent = formatMoney(ganancia);
+    }
+
+
+    // ============================
+    //   PRODUCTOS
+    // ============================
+
+    function stockLevelClass(stock) {
+      if (stock >= 20) return "stock-high";
+      if (stock >= 10) return "stock-mid";
+      return "stock-low";
+    }
+
+    function stockLabel(stock) {
+      if (stock >= 20) return "Stock alto";
+      if (stock >= 10) return "Stock medio";
+      return "Stock bajo";
+    }
+
+    function renderProducts(filtered = null) {
+      const grid = document.getElementById("products-grid");
+      grid.innerHTML = "";
+
+      const list = filtered || [...products].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre)
+      );
+
+      list.forEach(p => {
+        const card = document.createElement("div");
+        card.className = "product-card";
+        card.onclick = () => editProduct(p.id);
+
+        const img = document.createElement("div");
+        img.className = "product-image";
+        img.textContent = "Foto";
+
+        const name = document.createElement("div");
+        name.className = "product-name";
+        name.textContent = p.nombre;
+
+        const row1 = document.createElement("div");
+        row1.className = "product-row";
+        row1.innerHTML = `<span>Venta: ${formatMoney(p.precio_venta)}</span>
+                          <span>Compra: ${formatMoney(p.precio_compra)}</span>`;
+
+        const row2 = document.createElement("div");
+        row2.className = "product-row";
+
+        const stockPill = document.createElement("span");
+        stockPill.className = "stock-pill " + stockLevelClass(p.stock);
+        stockPill.textContent = stockLabel(p.stock);
+
+        const stockText = document.createElement("span");
+        stockText.textContent = `Stock: ${p.stock}`;
+
+        row2.appendChild(stockPill);
+        row2.appendChild(stockText);
+
+        card.appendChild(img);
+        card.appendChild(name);
+        card.appendChild(row1);
+        card.appendChild(row2);
+
+        grid.appendChild(card);
+      });
+    }
+
+    function filterProducts(query) {
+      query = query.toLowerCase();
+      const filtered = products
+        .filter(p => p.nombre.toLowerCase().includes(query))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+      renderProducts(filtered);
+    }
+
+    function openProductForm() {
+      const nombre = prompt("Nombre del producto:");
+      if (!nombre || nombre.trim() === "") {
+        alert("No se puede guardar sin nombre.");
+        return;
+      }
+
+      const precio_compra = parseFloat(prompt("Precio de compra:") || "0");
+      const precio_venta = parseFloat(prompt("Precio de venta:") || "0");
+      const stock = parseInt(prompt("Cantidad inicial:") || "0", 10);
+
+      if (precio_compra > precio_venta) {
+        alert("Precio de compra no debe ser mayor que precio de venta.");
+      }
+      if (stock < 0) {
+        alert("El stock no puede ser negativo.");
+        return;
+      }
+
+      const id = products.length ? Math.max(...products.map(p => p.id)) + 1 : 1;
+
+      products.push({
+        id,
+        nombre,
+        precio_compra,
+        precio_venta,
+        stock,
+      });
+
+      renderProducts();
+      updateDashboard();
+    }
+
+    function editProduct(id) {
+      const p = products.find(x => x.id === id);
+      if (!p) return;
+
+      const nombre = prompt("Nombre del producto:", p.nombre);
+      if (!nombre || nombre.trim() === "") {
+        alert("No se puede guardar sin nombre.");
+        return;
+      }
+
+      const precio_compra = parseFloat(prompt("Precio de compra:", p.precio_compra) || "0");
+      const precio_venta = parseFloat(prompt("Precio de venta:", p.precio_venta) || "0");
+      const stock = parseInt(prompt("Stock:", p.stock) || String(p.stock), 10);
+
+      if (precio_compra > precio_venta) {
+        alert("Precio de compra no debe ser mayor que precio de venta.");
+      }
+      if (stock < 0) {
+        alert("El stock no puede ser negativo.");
+        return;
+      }
+
+      p.nombre = nombre;
+      p.precio_compra = precio_compra;
+      p.precio_venta = precio_venta;
+      p.stock = stock;
+
+      renderProducts();
+      renderSalesProducts();
+      updateDashboard();
+    }
+
+
+    // ============================
+    //   VENTAS
+    // ============================
+
+    function renderSalesProducts(filtered = null) {
+      const grid = document.getElementById("sales-grid");
+      grid.innerHTML = "";
+
+      const list = filtered || [...products].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre)
+      );
+
+      list.forEach(p => {
+        const card = document.createElement("div");
+        card.className = "product-card";
+        card.onclick = () => addToCart(p.id);
+
+        const img = document.createElement("div");
+        img.className = "product-image";
+        img.textContent = "Foto";
+
+        const name = document.createElement("div");
+        name.className = "product-name";
+        name.textContent = p.nombre;
+
+        const row1 = document.createElement("div");
+        row1.className = "product-row";
+        row1.innerHTML = `<span>${formatMoney(p.precio_venta)}</span>
+                          <span>Stock: ${p.stock}</span>`;
+
+        card.appendChild(img);
+        card.appendChild(name);
+        card.appendChild(row1);
+
+        grid.appendChild(card);
+      });
+
+      renderCart();
+    }
+
+    function filterSalesProducts(query) {
+      query = query.toLowerCase();
+      const filtered = products
+        .filter(p => p.nombre.toLowerCase().includes(query))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+      renderSalesProducts(filtered);
+    }
+
+    function addToCart(productId) {
+      const product = products.find(p => p.id === productId);
+      if (!product) return;
+
+      if (product.stock <= 0) {
+        alert("No hay stock disponible para este producto.");
+        return;
+      }
+
+      const existing = cart.find(item => item.producto_id === productId);
+
+      if (existing) {
+        if (existing.cantidad + 1 > product.stock) {
+          alert("No se puede vender más de lo que hay en stock.");
+          return;
+        }
+        existing.cantidad += 1;
+      } else {
+        cart.push({ producto_id: productId, cantidad: 1 });
+      }
+
+      renderCart();
+    }
+
+    function changeCartQuantity(productId, delta) {
+      const item = cart.find(i => i.producto_id === productId);
+      if (!item) return;
+
+      const product = products.find(p => p.id === productId);
+      if (!product) return;
+
+      const newQty = item.cantidad + delta;
+
+      if (newQty <= 0) {
+        cart = cart.filter(i => i.producto_id !== productId);
+      } else {
+        if (newQty > product.stock) {
+          alert("No se puede vender más de lo que hay en stock.");
+          return;
+        }
+        item.cantidad = newQty;
+      }
+
+      renderCart();
+    }
+
+    function removeFromCart(productId) {
+      cart = cart.filter(i => i.producto_id !== productId);
+      renderCart();
+    }
+
+    function renderCart() {
+      const container = document.getElementById("cart-items");
+      container.innerHTML = "";
+
+      let total = 0;
+
+      cart.forEach(item => {
+        const product = products.find(p => p.id === item.producto_id);
+        if (!product) return;
+
+        const subtotal = product.precio_venta * item.cantidad;
+        total += subtotal;
+
+        const row = document.createElement("div");
+        row.className = "cart-item";
+
+        const info = document.createElement("div");
+        info.className = "cart-item-info";
+        info.innerHTML = `
+          <span>${product.nombre}</span>
+          <span class="muted">Cant: ${item.cantidad} · ${formatMoney(subtotal)}</span>
+        `;
+
+        const actions = document.createElement("div");
+        actions.className = "cart-item-actions";
+
+        const btnMinus = document.createElement("button");
+        btnMinus.className = "icon-button";
+        btnMinus.textContent = "−";
+        btnMinus.onclick = () => changeCartQuantity(product.id, -1);
+
+        const btnPlus = document.createElement("button");
+        btnPlus.className = "icon-button";
+        btnPlus.textContent = "+";
+        btnPlus.onclick = () => changeCartQuantity(product.id, 1);
+
+        const btnRemove = document.createElement("button");
+        btnRemove.className = "icon-button";
+        btnRemove.textContent = "✕";
+        btnRemove.onclick = () => removeFromCart(product.id);
+
+        actions.appendChild(btnMinus);
+        actions.appendChild(btnPlus);
+        actions.appendChild(btnRemove);
+
+        row.appendChild(info);
+        row.appendChild(actions);
+
+        container.appendChild(row);
+      });
+
+      document.getElementById("cart-total").textContent = formatMoney(total);
+      document.getElementById("cart-count").textContent = cart.length + " productos";
+    }
+
+    function confirmSale() {
+      if (cart.length === 0) {
+        alert("No se puede confirmar un carrito vacío.");
+        return;
+      }
+
+      openModal(
+        "Confirmar venta",
+        "¿Deseas confirmar esta venta?",
+        () => finalizeSale()
+      );
+    }
+
+    function finalizeSale() {
+      for (const item of cart) {
+        const product = products.find(p => p.id === item.producto_id);
+        if (!product || product.stock < item.cantidad) {
+          alert("Stock insuficiente para " + (product ? product.nombre : "producto"));
+          return;
+        }
+      }
+
+      let total = 0;
+      const itemsVenta = [];
+
+      cart.forEach(item => {
+        const product = products.find(p => p.id === item.producto_id);
+
+        product.stock -= item.cantidad;
+
+        const subtotal = product.precio_venta * item.cantidad;
+        total += subtotal;
+
+        itemsVenta.push({
+          producto_id: product.id,
+          cantidad: item.cantidad,
+          precio_unitario: product.precio_venta,
+          costo_unitario: product.precio_compra,
+        });
+      });
+
+      const venta = {
+        id: ventas.length ? Math.max(...ventas.map(v => v.id)) + 1 : 1,
+        fecha: new Date(),
+        total,
+        items: itemsVenta,
+      };
+
+      ventas.push(venta);
+
+      cart = [];
+      renderCart();
+      renderProducts();
+      renderSalesProducts();
+      updateDashboard();
+      renderHistory();
+
+      closeModal();
+      alert("Venta registrada correctamente.");
+    }
+
+
+    // ============================
+    //   HISTORIAL
+    // ============================
+
+    function renderHistory() {
+      const list = document.getElementById("history-list");
+      list.innerHTML = "";
+
+      const recent = ventas.slice(-20).reverse();
+
+      recent.forEach(v => {
+        const item = document.createElement("div");
+        item.className = "history-item";
+        item.onclick = () => showHistoryDetail(v.id);
+
+        const main = document.createElement("div");
+        main.className = "history-main";
+
+        const fecha = v.fecha.toLocaleString();
+        const numProductos = v.items.reduce((acc, i) => acc + i.cantidad, 0);
+
+        main.innerHTML = `
+          <span>${fecha}</span>
+          <span class="muted">${numProductos} productos · ${formatMoney(v.total)}</span>
+        `;
+
+        const badge = document.createElement("div");
+        badge.className = "history-badge";
+
+        if (v.total >= 50) badge.textContent = "🟢";
+        else if (v.total >= 20) badge.textContent = "🟡";
+        else badge.textContent = "⚪";
+
+        item.appendChild(main);
+        item.appendChild(badge);
+
+        list.appendChild(item);
+      });
+
+      document.getElementById("history-detail").style.display = "none";
+    }
+
+    function showHistoryDetail(id) {
+      const v = ventas.find(x => x.id === id);
+      if (!v) return;
+
+      const container = document.getElementById("history-products");
+      container.innerHTML = "";
+
+      v.items.forEach(item => {
+        const product = products.find(p => p.id === item.producto_id);
+
+        const row = document.createElement("div");
+        row.textContent =
+          (product ? product.nombre : "Producto") +
+          " · Cant: " +
+          item.cantidad +
+          " · " +
+          formatMoney(item.precio_unitario * item.cantidad);
+
+        container.appendChild(row);
+      });
+
+      document.getElementById("history-detail").style.display = "block";
+    }
+
+
+    // ============================
+    //   AJUSTES
+    // ============================
+
+    function updateBusinessName(name) {
+      businessName = name || "CuadraTech";
+    }
+
+    function openResetModal() {
+      openModal(
+        "Reset app",
+        "Esto borrará todos los productos y ventas. ¿Seguro?",
+        () => {
+          products = [];
+          ventas = [];
+          cart = [];
+
+          renderProducts();
+          renderSalesProducts();
+          renderCart();
+          renderHistory();
+          updateDashboard();
+
+          closeModal();
+          alert("Datos borrados.");
+        }
+      );
+    }
+
+
+    // ============================
+    //   MODAL
+    // ============================
+
+    function openModal(title, message, onConfirm) {
+      document.getElementById("modal-title").textContent = title;
+      document.getElementById("modal-message").textContent = message;
+
+      const confirmBtn = document.getElementById("modal-confirm");
+      confirmBtn.onclick = onConfirm;
+
+      document.getElementById("modal-backdrop").style.display = "flex";
+    }
+
+    function closeModal() {
+      document.getElementById("modal-backdrop").style.display = "none";
+    }
+
+
+    // ============================
+    //   INICIALIZACIÓN
+    // ============================
+
+    updateDashboard();
+    renderProducts();
+    renderSalesProducts();
+    renderHistory();
+
+  </script>
+</body>
+</html>

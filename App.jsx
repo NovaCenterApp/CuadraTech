@@ -30,10 +30,11 @@ const CATS=[
 const uid      = () => Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 const money    = n  => `$${Number(n||0).toFixed(2)}`;
 const nowIso   = () => new Date().toISOString();
-const todayStr = () => new Date().toISOString().slice(0,10);
+const todayStr = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 const fmtDate  = iso => new Date(iso).toLocaleDateString('es-CU',{day:'2-digit',month:'short'});
 const fmtTime  = iso => new Date(iso).toLocaleTimeString('es-CU',{hour:'2-digit',minute:'2-digit'});
 const daysSince= iso => Math.floor((Date.now()-new Date(iso).getTime())/86400000);
+const localDate= iso => { const d=new Date(iso); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 
 function handleImgFile(file,cb){
   if(!file) return;
@@ -172,7 +173,7 @@ function Toggle({on,onChange,label,sub,color=C.green}){
 }
 
 /* ── PIN MODAL ──────────────────────────────────────────── */
-function PinModal({storedPin, onSuccess, onClose, isSetup=false}){
+function PinModal({storedPin, onSuccess, onClose, isSetup=false, onFail}){
   const [digits,setDigits]=useState('');
   const [confirm,setConfirm]=useState('');
   const [step,setStep]=useState('enter');
@@ -184,7 +185,7 @@ function PinModal({storedPin, onSuccess, onClose, isSetup=false}){
   const submit=()=>{
     if(!isSetup){
       if(digits===storedPin) onSuccess();
-      else { setErr('PIN incorrecto'); setDigits(''); }
+      else { setErr('PIN incorrecto'); setDigits(''); if(onFail)onFail(); }
       return;
     }
     if(step==='enter'){
@@ -544,12 +545,24 @@ function Inventario({products,mode,onAdd,onEdit,onDel}){
 }
 
 /* ── HISTORIAL ──────────────────────────────────────────── */
-function Historial({sales,invMovements,onBack}){
+function Historial({sales,invMovements,cashMovs,onBack}){
   const [hTab,setHTab]=useState('ventas');
   const [date,setDate]=useState(todayStr());
   const [open,setOpen]=useState(null);
-  const filtVentas=[...sales].filter(s=>s.fecha.startsWith(date)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
-  const filtMovs=[...invMovements].filter(m=>m.fecha.startsWith(date)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const filtVentas=[...sales].filter(s=>localDate(s.fecha)===date).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const allMovs=[
+    ...(invMovements||[]).map(m=>({...m,_cat:'inv'})),
+    ...(cashMovs||[]).map(m=>({...m,_cat:'cash'})),
+  ].filter(m=>localDate(m.fecha)===date).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const getMovStyle=m=>{
+    if(m.tipo==='entrada')      return {ico:'📥',color:C.green, bg:C.gLight, label:`+${m.cantidad} ${m.unidad}`};
+    if(m.tipo==='salida')       return {ico:'📤',color:C.red,   bg:C.rLight, label:`-${m.cantidad} ${m.unidad}`};
+    if(m.tipo==='entrada_caja') return {ico:'💵',color:C.green, bg:C.gLight, label:`+${money(m.monto)}`};
+    if(m.tipo==='salida_caja')  return {ico:'💸',color:C.red,   bg:C.rLight, label:`-${money(m.monto)}`};
+    if(m.tipo==='acceso_admin') return {ico:'🔓',color:C.blue,  bg:C.blueLight, label:null};
+    if(m.tipo==='intento_pin')  return {ico:'⚠️',color:C.amber, bg:C.aLight, label:null};
+    return {ico:'📋',color:C.muted,bg:C.bg,label:null};
+  };
   const totRev=filtVentas.reduce((a,s)=>a+s.total,0);
   return(
     <div style={{paddingBottom:90}}>
@@ -618,25 +631,24 @@ function Historial({sales,invMovements,onBack}){
           </>
         )}
         {hTab==='movimientos'&&(
-          filtMovs.length===0?<Card s={{textAlign:'center',color:C.muted,padding:44}}>Sin movimientos de inventario para esta fecha</Card>
-          :filtMovs.map(m=>(
-            <Card key={m.id} s={{padding:'12px 14px'}}>
-              <div style={{display:'flex',gap:10,alignItems:'center'}}>
-                <div style={{width:40,height:40,borderRadius:10,background:m.tipo==='entrada'?C.gLight:C.rLight,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>
-                  {m.tipo==='entrada'?'📥':'📤'}
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:700,fontSize:14}}>{m.productNombre}</div>
-                  <div style={{fontSize:11,color:C.muted}}>{m.motivo} · {fmtTime(m.fecha)}</div>
-                </div>
-                <div style={{textAlign:'right',flexShrink:0}}>
-                  <div style={{fontWeight:900,fontSize:15,color:m.tipo==='entrada'?C.green:C.red}}>
-                    {m.tipo==='entrada'?'+':'-'}{m.cantidad} {m.unidad}
+          allMovs.length===0?<Card s={{textAlign:'center',color:C.muted,padding:44}}>Sin movimientos para esta fecha</Card>
+          :allMovs.map(m=>{
+            const st=getMovStyle(m);
+            const title=m.productNombre||m.concepto||'Movimiento';
+            const sub=m.motivo||(m._cat==='cash'?'Caja':'');
+            return(
+              <Card key={m.id} s={{padding:'12px 14px'}}>
+                <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                  <div style={{width:40,height:40,borderRadius:10,background:st.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>{st.ico}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:700,fontSize:14,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
+                    <div style={{fontSize:11,color:C.muted}}>{sub&&sub+' · '}{fmtTime(m.fecha)}</div>
                   </div>
+                  {st.label&&<div style={{fontWeight:900,fontSize:15,color:st.color,flexShrink:0}}>{st.label}</div>}
                 </div>
-              </div>
-            </Card>
-          ))
+              </Card>
+            );
+          })
         )}
       </div>
     </div>
@@ -767,7 +779,7 @@ function Analisis({sales,products,gastos}){
   const [specDay,setSpecDay]=useState(todayStr());
 
   const pSales=useMemo(()=>{
-    if(period==='dia') return sales.filter(s=>s.fecha.startsWith(specDay));
+    if(period==='dia') return sales.filter(s=>localDate(s.fecha)===specDay);
     const days=period==='semana'?7:period==='mes'?30:365;
     const cutoff=new Date(Date.now()-days*86400000).toISOString();
     return sales.filter(s=>s.fecha>=cutoff);
@@ -1053,7 +1065,7 @@ function NotifsPanel({notifs,onDismiss,onClose}){
 }
 
 /* ── CONFIG MODAL ───────────────────────────────────────── */
-function ConfigModal({store,pin,onSave,onSavePin,onClose,onReset}){
+function ConfigModal({store,pin,onSave,onSavePin,onClose,onReset,onExport,onImport}){
   const [s,setS]=useState(store);
   const [showPinSetup,setShowPinSetup]=useState(false);
   const fRef=useRef();
@@ -1087,8 +1099,19 @@ function ConfigModal({store,pin,onSave,onSavePin,onClose,onReset}){
       <button onClick={()=>setShowPinSetup(true)} style={{width:'100%',background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:12,padding:'12px',fontWeight:700,fontSize:14,cursor:'pointer',color:C.text,fontFamily:'inherit',marginBottom:20}}>
         🔒 {pin?'Cambiar PIN Admin':'Configurar PIN Admin'}
       </button>
-      <div style={{paddingTop:16,borderTop:`1px solid ${C.border}`,textAlign:'center'}}>
-        <div style={{color:C.muted,fontSize:11,marginBottom:12,letterSpacing:'1px'}}>v2.0 · Hecho con ♥ por CuadraTech</div>
+      <div style={{paddingTop:16,borderTop:`1px solid ${C.border}`}}>
+        <div style={{color:C.muted,fontSize:11,marginBottom:12,letterSpacing:'1px',textAlign:'center'}}>v2.0 · Hecho con ♥ por CuadraTech</div>
+        <div style={{background:'#F0FDF4',borderRadius:12,padding:14,marginBottom:10}}>
+          <div style={{fontWeight:700,fontSize:13,color:'#065F46',marginBottom:4}}>🛡️ Backup de datos</div>
+          <div style={{fontSize:12,color:C.muted,marginBottom:10}}>iOS puede borrar datos si el almacenamiento está bajo. Exporta regularmente.</div>
+          <div style={{display:'flex',gap:8}}>
+            <Btn full style={{fontSize:13,padding:'10px'}} onClick={onExport}>📤 Exportar</Btn>
+            <label style={{flex:1}}>
+              <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:12,padding:'10px',textAlign:'center',fontSize:13,fontWeight:700,cursor:'pointer',color:C.muted}}>📥 Importar</div>
+              <input type="file" accept=".json" style={{display:'none'}} onChange={e=>onImport(e.target.files[0])}/>
+            </label>
+          </div>
+        </div>
         <Btn v="danger" full style={{fontSize:13,padding:'10px'}} onClick={onReset}>⚠️ Borrar todos los datos</Btn>
       </div>
       {showPinSetup&&<PinModal isSetup storedPin={null} onClose={()=>setShowPinSetup(false)} onSuccess={p=>{onSavePin(p);setShowPinSetup(false);}}/>}
@@ -1096,12 +1119,53 @@ function ConfigModal({store,pin,onSave,onSavePin,onClose,onReset}){
   );
 }
 
+
+/* ── CAJA MOVE MODAL ────────────────────────────────────── */
+function CajaMoveModal({onClose,onSave}){
+  const [tipo,setTipo]=useState('entrada');
+  const [monto,setMonto]=useState('');
+  const [conc,setConc]=useState('');
+  const v=parseFloat(monto)||0;
+  return(
+    <Mdl title="💵 Movimiento de Caja" onClose={onClose}>
+      <Lbl>Tipo de movimiento</Lbl>
+      <div style={{display:'flex',gap:8,marginBottom:14}}>
+        {[['entrada','↑ Entrada'],['salida','↓ Salida']].map(([val,lbl])=>(
+          <button key={val} onClick={()=>setTipo(val)}
+            style={{flex:1,border:`2px solid ${tipo===val?(val==='entrada'?C.green:C.red):C.border}`,borderRadius:10,padding:'11px',background:tipo===val?(val==='entrada'?C.gLight:C.rLight):'#fff',fontWeight:700,fontSize:13,cursor:'pointer',color:tipo===val?(val==='entrada'?C.green:C.red):C.muted,fontFamily:'inherit'}}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+      <Inp label="Monto (CUP) *" type="number" value={monto} onChange={e=>setMonto(e.target.value)} placeholder="0.00"/>
+      <Inp label="Concepto (opcional)" value={conc} onChange={e=>setConc(e.target.value)} placeholder={tipo==='entrada'?'ej. Fondo inicial, depósito':'ej. Pago proveedor, gastos'}/>
+      {v>0&&(
+        <div style={{background:tipo==='entrada'?C.gLight:C.rLight,borderRadius:10,padding:'10px 14px',marginBottom:14,display:'flex',justifyContent:'space-between'}}>
+          <span style={{fontWeight:700,color:tipo==='entrada'?C.green:C.red}}>{tipo==='entrada'?'Entrará a caja':'Saldrá de caja'}</span>
+          <span style={{fontWeight:900,fontSize:17,color:tipo==='entrada'?C.green:C.red}}>{money(v)}</span>
+        </div>
+      )}
+      <Btn full v={tipo==='entrada'?'primary':'danger'} disabled={!v}
+        onClick={()=>{
+          onSave({id:uid(),fecha:nowIso(),tipo:tipo==='entrada'?'entrada_caja':'salida_caja',monto:v,concepto:conc.trim()||(tipo==='entrada'?'Entrada de caja':'Salida de caja')});
+          onClose();
+        }}>
+        Registrar {tipo==='entrada'?'Entrada':'Salida'}
+      </Btn>
+    </Mdl>
+  );
+}
+
 /* ── HOME ───────────────────────────────────────────────── */
-function Home({store,sales,products,notifications,mode,onNotifs,onGastos,onConfig,onHistorial,onToggleMode,pin}){
+function Home({store,sales,products,notifications,mode,cashMovs,onNotifs,onGastos,onConfig,onHistorial,onToggleMode,onCajaMove,pin}){
   const t=todayStr();
-  const todaySales=sales.filter(s=>s.fecha.startsWith(t));
+  const todaySales=sales.filter(s=>localDate(s.fecha)===t);
   const totalEfectivo=todaySales.filter(s=>!s.metodo||s.metodo==='efectivo').reduce((a,s)=>a+s.total,0);
   const totalTransf=todaySales.filter(s=>s.metodo==='transferencia').reduce((a,s)=>a+s.total,0);
+  const cajaMov=(cashMovs||[]).filter(m=>localDate(m.fecha)===t);
+  const entradas=cajaMov.filter(m=>m.tipo==='entrada_caja').reduce((a,m)=>a+m.monto,0);
+  const salidas =cajaMov.filter(m=>m.tipo==='salida_caja').reduce((a,m)=>a+m.monto,0);
+  const cajaNeta=totalEfectivo+entradas-salidas;
 
   const qMap={};
   todaySales.forEach(s=>s.items.forEach(i=>{qMap[i.productId]=(qMap[i.productId]||0)+i.qty;}));
@@ -1142,12 +1206,19 @@ function Home({store,sales,products,notifications,mode,onNotifs,onGastos,onConfi
       <div style={{padding:'0 14px',marginTop:-8}}>
         <Card s={{textAlign:'center',padding:'26px 20px 18px',marginBottom:12}}>
           <div style={{fontSize:11,color:C.muted,textTransform:'uppercase',letterSpacing:'2.5px',fontWeight:700,marginBottom:8}}>Caja del Día</div>
-          <div style={{fontSize:52,fontWeight:900,color:C.green,letterSpacing:'-3px',lineHeight:1}}>{money(totalEfectivo)}</div>
-          {totalTransf>0&&(
-            <div style={{fontSize:13,color:C.blue,fontWeight:700,marginTop:6}}>💳 +{money(totalTransf)} en tarjeta</div>
-          )}
+          <div style={{fontSize:52,fontWeight:900,color:C.green,letterSpacing:'-3px',lineHeight:1}}>{money(cajaNeta)}</div>
+          <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:6,flexWrap:'wrap'}}>
+            {totalTransf>0&&<div style={{fontSize:12,color:C.blue,fontWeight:700}}>💳 +{money(totalTransf)} tarjeta</div>}
+            {entradas>0&&<div style={{fontSize:12,color:C.green,fontWeight:700}}>↑ +{money(entradas)}</div>}
+            {salidas>0&&<div style={{fontSize:12,color:C.red,fontWeight:700}}>↓ -{money(salidas)}</div>}
+          </div>
           <div style={{fontSize:11,color:C.muted,marginTop:4,letterSpacing:'1px'}}>CUP · {fmtDate(nowIso())}</div>
-          <div style={{background:C.bg,borderRadius:10,padding:'10px',marginTop:16}}>
+          {isAdmin&&(
+            <button onClick={onCajaMove} style={{marginTop:12,background:C.dark,border:'none',borderRadius:10,padding:'8px 18px',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
+              💵 Movimiento de caja
+            </button>
+          )}
+          <div style={{background:C.bg,borderRadius:10,padding:'10px',marginTop:12}}>
             <div style={{fontWeight:900,fontSize:26,color:C.text}}>{todaySales.length}</div>
             <div style={{fontSize:11,color:C.muted,fontWeight:600}}>Ventas hoy</div>
           </div>
@@ -1194,12 +1265,14 @@ export default function App(){
   const [fiados,    setFiados  ]=useState([]);
   const [gastos,    setGastos  ]=useState([]);
   const [invMovs,   setInvMovs ]=useState([]);
+  const [cashMovs,  setCashMovs]=useState([]);
   const [pin,       setPin     ]=useState(null);
   const [mode,      setMode    ]=useState('dependiente');
   const [dismissed, setDismissed]=useState([]);
 
   const [tab,       setTab     ]=useState('home');
   const [showSale,  setSale    ]=useState(false);
+  const [showCajaMove,setCajaMove]=useState(false);
   const [showNotifs,setNotifs  ]=useState(false);
   const [showGastos,setGastosP ]=useState(false);
   const [showConfig,setConfig  ]=useState(false);
@@ -1213,11 +1286,11 @@ export default function App(){
   useEffect(()=>{
     (async()=>{
       try{
-        const keys=['ct-store','ct-products','ct-sales','ct-fiados','ct-gastos','ct-invmovs','ct-pin'];
+        const keys=['ct-store','ct-products','ct-sales','ct-fiados','ct-gastos','ct-invmovs','ct-pin','ct-cashmovs'];
         const res=await Promise.allSettled(keys.map(k=>window.storage.get(k)));
         const getV=r=>r.status==='fulfilled'&&r.value?r.value.value:null;
         const getJ=r=>{ try{ const v=getV(r); return v?JSON.parse(v):null; }catch(e){return null;} };
-        const [st,pr,sl,fi,ga,im,pn]=res;
+        const [st,pr,sl,fi,ga,im,pn,cm]=res;
         if(!getV(st)){setFirst(true);}else{setStore(JSON.parse(getV(st)));}
         const pr2=getJ(pr); if(pr2)setProds(pr2);
         const sl2=getJ(sl); if(sl2)setSales(sl2);
@@ -1225,6 +1298,7 @@ export default function App(){
         const ga2=getJ(ga); if(ga2)setGastos(ga2);
         const im2=getJ(im); if(im2)setInvMovs(im2);
         const pn2=getV(pn); if(pn2)setPin(pn2);
+        const cm2=getJ(cm); if(cm2)setCashMovs(cm2);
       }catch(e){setFirst(true);}
       setLoaded(true);
     })();
@@ -1240,6 +1314,7 @@ export default function App(){
   const saveGastos =v=>sv('ct-gastos',  v,setGastos);
   const saveInvMovs=v=>sv('ct-invmovs', v,setInvMovs);
   const savePin    =v=>svRaw('ct-pin',  v,setPin);
+  const saveCashMovs=v=>sv('ct-cashmovs',v,setCashMovs);
 
   /* ── Handlers ── */
   const handleSale=async({items,total,pagado,cambio,fecha,metodo})=>{
@@ -1275,16 +1350,61 @@ export default function App(){
     showToast('Producto eliminado');
   };
 
+  const logAdminEvent=(tipo,concepto)=>{
+    const entry={id:uid(),fecha:nowIso(),tipo,concepto};
+    saveCashMovs([entry,...cashMovs]);
+  };
+
+  const handleCashMovement=m=>{
+    saveCashMovs([m,...cashMovs]);
+  };
+
   const handleToggleMode=()=>{
-    if(mode==='admin'){setMode('dependiente');if(['analisis'].includes(tab))setTab('home');}
-    else{ if(pin){setShowPin(true);}else{setMode('admin');} }
+    if(mode==='admin'){
+      setMode('dependiente');
+      if(['analisis'].includes(tab)) setTab('home');
+    } else {
+      if(pin){ setShowPin(true); }
+      else {
+        logAdminEvent('acceso_admin','Acceso modo Administrador (sin PIN)');
+        setMode('admin');
+      }
+    }
   };
 
   const handleReset=async()=>{
     if(!window.confirm('¿Seguro? Esto borrará TODOS los datos permanentemente.')) return;
-    await Promise.all(['ct-store','ct-products','ct-sales','ct-fiados','ct-gastos','ct-invmovs','ct-pin']
+    await Promise.all(['ct-store','ct-products','ct-sales','ct-fiados','ct-gastos','ct-invmovs','ct-pin','ct-cashmovs']
       .map(k=>window.storage.delete(k).catch(()=>{})));
     window.location.reload();
+  };
+
+  const handleExport=()=>{
+    const data={version:'2.0',exportDate:nowIso(),store,products,sales,fiados,gastos,invMovs};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=`cuadratech-backup-${todayStr()}.json`; a.click();
+    URL.revokeObjectURL(url);
+    showToast('✓ Backup exportado');
+  };
+
+  const handleImport=async(file)=>{
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=async e=>{
+      try{
+        const d=JSON.parse(e.target.result);
+        if(d.products) await saveProds(d.products);
+        if(d.sales)    await saveSales(d.sales);
+        if(d.fiados)   await saveFiados(d.fiados);
+        if(d.gastos)   await saveGastos(d.gastos);
+        if(d.invMovs)  await saveInvMovs(d.invMovs);
+        if(d.store)    await saveStore(d.store);
+        showToast('✓ Datos restaurados correctamente');
+      }catch(err){ showToast('Error al importar el archivo',false); }
+    };
+    reader.readAsText(file);
   };
 
   /* ── Loading ── */
@@ -1305,7 +1425,7 @@ export default function App(){
 
   const isAdmin=mode==='admin';
   const NAV_DEP=[{id:'home',ico:'🏠',l:'Inicio'},{id:'inventario',ico:'📦',l:'Inventario'},{id:'__fab__',ico:'',l:''},{id:'fiado',ico:'🤝',l:'Fiado'},{id:'historial',ico:'📋',l:'Historial'}];
-  const NAV_ADM=[{id:'home',ico:'🏠',l:'Inicio'},{id:'inventario',ico:'📦',l:'Inventario'},{id:'__fab__',ico:'',l:''},{id:'fiado',ico:'🤝',l:'Fiado'},{id:'analisis',ico:'📊',l:'Análisis'}];
+  const NAV_ADM=[{id:'home',ico:'🏠',l:'Inicio'},{id:'inventario',ico:'📦',l:'Inventario'},{id:'__fab__',ico:'',l:''},{id:'historial',ico:'📋',l:'Historial'},{id:'analisis',ico:'📊',l:'Análisis'}];
   const NAV=isAdmin?NAV_ADM:NAV_DEP;
 
   return(
@@ -1321,9 +1441,9 @@ export default function App(){
 
       <ToastEl t={toast}/>
 
-      {tab==='home'       &&<Home store={store} sales={sales} products={products} notifications={notifications} mode={mode} onNotifs={()=>setNotifs(true)} onGastos={()=>setGastosP(true)} onConfig={()=>setConfig(true)} onHistorial={()=>setTab('historial')} onToggleMode={handleToggleMode} pin={pin}/>}
+      {tab==='home'       &&<Home store={store} sales={sales} products={products} notifications={notifications} mode={mode} cashMovs={cashMovs} onNotifs={()=>setNotifs(true)} onGastos={()=>setGastosP(true)} onConfig={()=>setConfig(true)} onHistorial={()=>setTab('historial')} onToggleMode={handleToggleMode} onCajaMove={()=>setCajaMove(true)} pin={pin}/>}
       {tab==='inventario' &&<Inventario products={products} mode={mode} onAdd={handleAddProd} onEdit={handleEditProd} onDel={handleDelProd}/>}
-      {tab==='historial'  &&<Historial sales={sales} invMovements={invMovs} onBack={()=>setTab('home')}/>}
+      {tab==='historial'  &&<Historial sales={sales} invMovements={invMovs} cashMovs={cashMovs} onBack={()=>setTab('home')}/>}
       {tab==='fiado'      &&<Fiado fiados={fiados} onAdd={f=>saveFiados([f,...fiados])} onUpdate={f=>saveFiados(fiados.map(x=>x.id===f.id?f:x))}/>}
       {tab==='analisis'   &&isAdmin&&<Analisis sales={sales} products={products} gastos={gastos}/>}
 
@@ -1337,7 +1457,7 @@ export default function App(){
               </button>
             </div>
           );
-          const active=tab===n.id||(tab==='historial'&&n.id==='home');
+          const active=tab===n.id;
           return(
             <button key={n.id} onClick={()=>setTab(n.id)} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3,padding:'8px 0',position:'relative'}}>
               <span style={{fontSize:20,opacity:active?1:.4}}>{n.ico}</span>
@@ -1349,11 +1469,17 @@ export default function App(){
       </nav>
 
       {/* Overlays */}
-      {showSale   &&<NuevaVenta products={products} onClose={()=>setSale(false)} onConfirm={handleSale}/>}
+      {showSale     &&<NuevaVenta products={products} onClose={()=>setSale(false)} onConfirm={handleSale}/>}
+      {showCajaMove &&<CajaMoveModal onClose={()=>setCajaMove(false)} onSave={m=>{handleCashMovement(m);showToast(m.tipo==='entrada_caja'?`✓ Entrada: ${money(m.monto)}`:`✓ Salida: ${money(m.monto)}`);}}/>}
       {showNotifs &&<NotifsPanel notifs={notifications} onDismiss={id=>setDismissed(d=>[...d,id])} onClose={()=>setNotifs(false)}/>}
       {showGastos &&isAdmin&&<GastosPanel gastos={gastos} onAdd={g=>saveGastos([g,...gastos])} onDel={id=>saveGastos(gastos.filter(g=>g.id!==id))} onClose={()=>setGastosP(false)}/>}
-      {showConfig &&isAdmin&&<ConfigModal store={store} pin={pin} onSave={s=>{saveStore(s);setConfig(false);showToast('✓ Tienda actualizada');}} onSavePin={p=>{savePin(p);showToast('✓ PIN actualizado');}} onClose={()=>setConfig(false)} onReset={handleReset}/>}
-      {showPin    &&<PinModal storedPin={pin} onClose={()=>setShowPin(false)} onSuccess={()=>{setMode('admin');setShowPin(false);showToast('Modo Admin activado');}}/>}
+      {showConfig &&isAdmin&&<ConfigModal store={store} pin={pin} onSave={s=>{saveStore(s);setConfig(false);showToast('✓ Tienda actualizada');}} onSavePin={p=>{savePin(p);showToast('✓ PIN actualizado');}} onClose={()=>setConfig(false)} onReset={handleReset} onExport={handleExport} onImport={handleImport}/>}
+      {showPin    &&<PinModal storedPin={pin} onClose={()=>setShowPin(false)}
+        onFail={()=>logAdminEvent('intento_pin','Intento fallido de PIN')}
+        onSuccess={()=>{
+          logAdminEvent('acceso_admin','Acceso modo Administrador');
+          setMode('admin');setShowPin(false);showToast('Modo Admin activado');
+        }}/>}
     </div>
   );
 }
